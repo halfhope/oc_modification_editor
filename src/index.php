@@ -5,10 +5,10 @@ $config_file = '../config.php';
 
 // Authorization 
 if (!isset($_COOKIE['m3cd4']) || $_COOKIE['m3cd4'] !== $password){
-	die("<html><head><script>var pwd=prompt('Enter password','');document.cookie='dev='+encodeURIComponent(pwd);location.reload();</script></head></html>");
+	die("<html><head><script>var pwd=prompt('Enter password','');document.cookie='m3cd4='+encodeURIComponent(pwd);location.reload();</script></head></html>");
 }
 
-$_version = '1.0';
+$_version = '1.1';
 
 // Error Handler
 function error_handler($errno, $errstr, $errfile, $errline) {
@@ -38,7 +38,7 @@ function error_handler($errno, $errstr, $errfile, $errline) {
 	return true;
 }
 
-set_error_handler('error_handler');
+// set_error_handler('error_handler');
 
 // Load config
 if (file_exists($config_file)) {
@@ -228,22 +228,22 @@ class OCMod
 		return $mods;
 	}
 
-	public function parseFSMod($file_name){
-		$fmid = hash('crc32b', pathinfo($file_name, PATHINFO_BASENAME));
+	public function parseFSMod($filename){
+		$fmid = hash('crc32b', pathinfo($filename, PATHINFO_BASENAME));
 		$dom = new DOMDocument('1.0', 'UTF-8');
 		$dom->preserveWhiteSpace = false;
-		$xml = file_get_contents($file_name);
+		$xml = file_get_contents($filename);
 		$dom->loadXml($xml);
 		
-		$name = '<span title="'.pathinfo($file_name, PATHINFO_BASENAME).'">'.$dom->getElementsByTagName('name')->item(0)->textContent . '</span>';
+		$name = '<span title="'.pathinfo($filename, PATHINFO_BASENAME).'">'.$dom->getElementsByTagName('name')->item(0)->textContent . '</span>';
 		$author = $dom->getElementsByTagName('author')->item(0)->textContent;
 		$version = $dom->getElementsByTagName('version')->length ? $dom->getElementsByTagName('version')->item(0)->textContent : '';
 		$link = $dom->getElementsByTagName('link')->length ? urldecode($dom->getElementsByTagName('link')->item(0)->textContent) : '';
-		$status = (int)(pathinfo($file_name, PATHINFO_EXTENSION) == 'xml');
+		$status = (int)(pathinfo($filename, PATHINFO_EXTENSION) == 'xml');
 
 		return array(
 			'modification_id' => $fmid,
-			'file' => $file_name,
+			'file' => $filename,
 			'name' => $name,
 			'code' => $dom->getElementsByTagName('code')->item(0)->textContent,
 			'author' => $author,
@@ -251,7 +251,7 @@ class OCMod
 			'link' => $link,
 			'xml' => $xml,
 			'status' => $status,
-			'date_added' => date('Y-m-d H:i:s', filectime($file_name))
+			'date_added' => date('Y-m-d H:i:s', filectime($filename))
 		);
 	}
 
@@ -272,7 +272,11 @@ class OCMod
 				$recovery = $modification;
 			}
 
-			$name = '<span>'.$dom->getElementsByTagName('name')->item(0)->textContent . '</span>';
+			if ($dom->getElementsByTagName('name')->length) {
+				$name = '<span>'.$dom->getElementsByTagName('name')->item(0)->textContent . '</span>';				
+			} else {
+				$name = '<span>'.$dom->getElementsByTagName('id')->item(0)->textContent . '</span>';	
+			}
 
 			$files = $dom->getElementsByTagName('modification')->item(0)->getElementsByTagName('file');
 
@@ -468,7 +472,7 @@ class OCMod
 		}
 		return $result;
 	}
-	
+
 	// ajax functions
 
 	public function saveMod($data){
@@ -610,7 +614,7 @@ class OCMod
 		}
 		return $result;
 	}
-
+	// static
 	public static function formatTable($mods){
 		$result = array();
 		$result['cols'] = array(
@@ -940,7 +944,7 @@ nav.sidebar .fa{
     font-size: 1em;
     margin: 5px 0px;
 }
-.file_name{
+.filename{
 	font-size: 1.1em;
 }
 .mod_lines pre{
@@ -1046,7 +1050,7 @@ nav.sidebar .fa{
 							<div class="tab-pane show active" id="byfile">
 							<?php foreach ($files['file'] as $filename => $mods): ?>
 								<div class="modded_file">
-									<span class="file_name"><b><?php echo trim(str_replace(DIR_ROOT, '', realpath($filename)), '\\') ?></b></span><br>
+									<span class="filename"><b><?php echo trim(str_replace(DIR_ROOT, '', realpath($filename)), '\\') ?></b></span><br>
 								<?php foreach ($mods as $mod_id => $mod_data): ?>
 									<span class="mod_link badge badge-info" onClick="openMod('<?php echo $mod_id ?>', true, <?php echo (int)end($mod_data['lines'])['line_num'] ?>)"><?php echo $mod_data['name'] ?>:<?php echo (int)end($mod_data['lines'])['line_num'] ?></span>
 									<div class="mod_lines">
@@ -1064,7 +1068,7 @@ nav.sidebar .fa{
 								<div class="modded_file">
 									<span class="mod_link badge badge-info" onClick="openMod('<?php echo $mod_id ?>', true);"><b><?php echo $files['mods'][$mod_id] ?></b></span><br>
 								<?php foreach ($files2 as $file => $mod_data): ?>
-									<span class="file_name" onClick="openMod('<?php echo $mod_id ?>', true, <?php echo (int)end($mod_data['lines'])['line_num'] ?>)"><b><?php echo $mod_data['name'] ?>:<?php echo (int)end($mod_data['lines'])['line_num'] ?></b></span>
+									<span class="filename" onClick="openMod('<?php echo $mod_id ?>', true, <?php echo (int)end($mod_data['lines'])['line_num'] ?>)"><b><?php echo $mod_data['name'] ?>:<?php echo (int)end($mod_data['lines'])['line_num'] ?></b></span>
 									<div class="mod_lines">
 										<?php foreach ($mod_data['lines'] as $line => $data): ?>
 											<?php $id = hash('crc32b', http_build_query(array($file,$mod_id,$line,$data['search']))); ?>
@@ -1402,7 +1406,7 @@ nav.sidebar .fa{
 			success: function(json){
 				html = '';
 				$.each(json['result'], function(index, val) {
-					html += '<span class="file_name"><b>' + val['name'] + ' | ' + val['file'] + '</b></span></br>';
+					html += '<span class="filename"><b>' + val['name'] + ' | ' + val['file'] + '</b></span></br>';
 					html += '<div class="mod_lines">';
 					$.each(val['goods'], function(index2, val2) {
 						html += '<pre onClick="openMod(\'' + val['modification_id'] + '\', true, ' + index2 + ')">';
@@ -1413,7 +1417,7 @@ nav.sidebar .fa{
 				});
 				
 				if (html == '') {
-					html = '<span class="file_name"><b>Empty</b></span>';
+					html = '<span class="filename"><b>Empty</b></span>';
 				}
 
 				$('#search_result').html(html);
